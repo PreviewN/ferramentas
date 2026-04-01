@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate URL Checker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 250px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+        
+        .btn-tertiary {
+            background: #ed8936;
+            color: white;
+        }
+        
+        .btn-tertiary:hover {
+            background: #dd6b20;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
+        }
+        
+        .results {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .results h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .stat {
+            margin: 8px 0;
+            color: #555;
+            font-size: 15px;
+        }
+        
+        .stat strong {
+            color: #333;
+        }
+        
+        .duplicate-group {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .duplicate-group h3 {
+            color: #e53e3e;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .duplicate-url {
+            padding: 8px;
+            background: #fff5f5;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #c53030;
+            word-break: break-all;
+        }
+        
+        .success-message {
+            color: #38a169;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        
+        .info-box {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #2c5282;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Duplicate URL Checker</h1>
+        <p class="subtitle">Paste your URLs below (one per line) to find duplicates. URLs are normalized to ignore http/https differences.</p>
+        
+        <textarea id="urlInput" placeholder="https://example.com&#10;http://example.com&#10;https://example.com/page&#10;https://google.com"></textarea>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="checkDuplicates()">Check for Duplicates</button>
+            <button class="btn-secondary" onclick="saveData()">Save URLs</button>
+            <button class="btn-tertiary" onclick="loadData()">Load Saved URLs</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const DB_NAME = 'URLCheckerDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'urlData';
+        const DATA_KEY = 'savedUrls';
+        
+        // Initialize IndexedDB
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+            });
+        }
+        
+        // Load saved data on page load
+        window.onload = async function() {
+            await loadData(true);
+        };
+        
+        function normalizeUrl(url) {
+            // Remove all slashes
+            let normalized = url.trim().replace(/\//g, '');
+            // Remove protocol (http, https)
+            normalized = normalized.replace(/^https?:/g, '');
+            // Remove www. prefix
+            normalized = normalized.replace(/^www\./g, '');
+            // Convert to lowercase for comparison
+            return normalized.toLowerCase();
+        }
+        
+        function checkDuplicates() {
+            const input = document.getElementById('urlInput').value;
+            const lines = input.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.startsWith('http'));
+            
+            if (lines.length === 0) {
+                document.getElementById('results').innerHTML = '<div class="results"><p style="color: #e53e3e;">Please enter some URLs to check. Only lines starting with "http" will be processed.</p></div>';
+                return;
+            }
+            
+            // Map to track normalized URL -> original URLs
+            const urlMap = {};
+            
+            lines.forEach(url => {
+                const normalized = normalizeUrl(url);
+                if (!urlMap[normalized]) {
+                    urlMap[normalized] = [];
+                }
+                urlMap[normalized].push(url);
+            });
+            
+            // Find duplicates
+            const duplicates = Object.values(urlMap).filter(urls => urls.length > 1);
+            const uniqueCount = Object.keys(urlMap).length;
+            const totalCount = lines.length;
+            const duplicateCount = totalCount - uniqueCount;
+            
+            // Display results
+            let resultsHtml = '<div class="results">';
+            resultsHtml += '<h2>Analysis Results</h2>';
+            resultsHtml += `<div class="stat"><strong>Total URLs:</strong> ${totalCount}</div>`;
+            resultsHtml += `<div class="stat"><strong>Unique URLs:</strong> ${uniqueCount}</div>`;
+            resultsHtml += `<div class="stat"><strong>Duplicate URLs:</strong> ${duplicateCount}</div>`;
+            
+            if (duplicates.length > 0) {
+                resultsHtml += '<h2 style="margin-top: 20px; color: #e53e3e;">Duplicate Groups Found:</h2>';
+                duplicates.forEach((group, index) => {
+                    resultsHtml += `<div class="duplicate-group">`;
+                    resultsHtml += `<h3>Duplicate Group ${index + 1} (${group.length} instances)</h3>`;
+                    group.forEach(url => {
+                        resultsHtml += `<div class="duplicate-url">${url}</div>`;
+                    });
+                    resultsHtml += '</div>';
+                });
+            } else {
+                resultsHtml += '<p class="success-message">✓ No duplicates found! All URLs are unique.</p>';
+            }
+            
+            resultsHtml += '</div>';
+            document.getElementById('results').innerHTML = resultsHtml;
+        }
+        
+        async function saveData() {
+            const input = document.getElementById('urlInput').value;
+            
+            try {
+                const db = await openDB();
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                
+                store.put(input, DATA_KEY);
+                
+                await new Promise((resolve, reject) => {
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error);
+                });
+                
+                db.close();
+                
+                document.getElementById('results').innerHTML = 
+                    '<div class="results"><p class="success-message">✓ URLs saved successfully to browser storage!</p><div class="info-box">Your URLs are now stored persistently and will remain available even after closing or refreshing the page.</div></div>';
+            } catch (error) {
+                document.getElementById('results').innerHTML = 
+                    '<div class="results"><p style="color: #e53e3e;">Error saving URLs: ' + error.message + '</p></div>';
+            }
+        }
+        
+        async function loadData(silent = false) {
+            try {
+                const db = await openDB();
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get(DATA_KEY);
+                
+                const data = await new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+                
+                db.close();
+                
+                if (data) {
+                    document.getElementById('urlInput').value = data;
+                    if (!silent) {
+                        document.getElementById('results').innerHTML = 
+                            '<div class="results"><p class="success-message">✓ Saved URLs loaded successfully!</p></div>';
+                    }
+                } else {
+                    if (!silent) {
+                        document.getElementById('results').innerHTML = 
+                            '<div class="results"><p style="color: #e53e3e;">No saved URLs found.</p></div>';
+                    }
+                }
+            } catch (error) {
+                if (!silent) {
+                    document.getElementById('results').innerHTML = 
+                        '<div class="results"><p style="color: #e53e3e;">Error loading URLs: ' + error.message + '</p></div>';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
