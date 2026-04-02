@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construtor de Busca Booleana</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --sidebar-bg: #2c3e50;
+            --sidebar-text: #ecf0f1;
+            --canvas-bg: #ffffff;
+            --border-color: #bdc3c7;
+            --and-color: #3498db;
+            --or-color: #2ecc71;
+            --not-color: #e74c3c;
+            --term-color: #f39c12;
+            --prox-color: #9b59b6;
+            --site-color: #34495e;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #1a252f;
+            color: white;
+            padding: 15px 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .sidebar h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #95a5a6;
+            border-bottom: 1px solid #7f8c8d;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .menu-block {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: grab;
+            font-weight: bold;
+            text-align: center;
+            user-select: none;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .menu-block:active {
+            cursor: grabbing;
+        }
+
+        .bg-and { background-color: var(--and-color); }
+        .bg-or { background-color: var(--or-color); }
+        .bg-not { background-color: var(--not-color); }
+        .bg-term { background-color: var(--term-color); }
+        .bg-prox { background-color: var(--prox-color); }
+        .bg-site { background-color: var(--site-color); }
+
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .canvas {
+            flex: 1;
+            background-color: var(--canvas-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+            min-height: 200px;
+        }
+
+        .canvas.drag-over {
+            background-color: #e8f8f5;
+            border-color: var(--or-color);
+        }
+
+        .output-panel {
+            margin-top: 20px;
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .output-panel h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        #query-output {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: none;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+        }
+
+        /* Block Styles in Canvas */
+        .block {
+            border: 2px solid;
+            border-radius: 6px;
+            margin: 10px 0;
+            background-color: white;
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .block-header {
+            padding: 8px 12px;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+
+        .block.term .block-header { background-color: var(--term-color); border-bottom: none; border-radius: 4px; }
+        .block.term { border-color: var(--term-color); }
+        
+        .block.prox .block-header { background-color: var(--prox-color); border-bottom: none; border-radius: 4px; }
+        .block.prox { border-color: var(--prox-color); }
+        
+        .block.site .block-header { background-color: var(--site-color); border-bottom: none; border-radius: 4px; }
+        .block.site { border-color: var(--site-color); }
+
+        .block.and .block-header { background-color: var(--and-color); }
+        .block.and { border-color: var(--and-color); }
+
+        .block.or .block-header { background-color: var(--or-color); }
+        .block.or { border-color: var(--or-color); }
+
+        .block.not .block-header { background-color: var(--not-color); }
+        .block.not { border-color: var(--not-color); }
+
+        .dropzone {
+            padding: 15px;
+            min-height: 40px;
+            background-color: rgba(0,0,0,0.02);
+        }
+        
+        .dropzone:empty::before {
+            content: 'Arraste os blocos aqui...';
+            color: #aaa;
+            font-style: italic;
+            display: block;
+            text-align: center;
+        }
+
+        .dropzone.drag-over {
+            background-color: rgba(46, 204, 113, 0.1);
+            border: 2px dashed var(--or-color);
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0 5px;
+        }
+        .delete-btn:hover { color: #f1c40f; }
+
+        input[type="text"], input[type="number"] {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin: 0 5px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>Construtor de Buscas Booleanas</header>
+
+    <div class="container">
+        <div class="sidebar">
+            <h3>Operadores</h3>
+            <div class="menu-block bg-and" draggable="true" data-type="and">Grupo AND (E)</div>
+            <div class="menu-block bg-or" draggable="true" data-type="or">Grupo OR (OU)</div>
+            <div class="menu-block bg-not" draggable="true" data-type="not">Excluir NOT (NÃO)</div>
+            
+            <h3 style="margin-top: 25px;">Termos</h3>
+            <div class="menu-block bg-term" draggable="true" data-type="term">Termo Exato</div>
+            <div class="menu-block bg-prox" draggable="true" data-type="prox">Termo com Proximidade (~)</div>
+            <div class="menu-block bg-site" draggable="true" data-type="site">Site Específico</div>
+        </div>
+
+        <div class="workspace">
+            <div class="canvas dropzone root-zone" id="main-canvas"></div>
+
+            <div class="output-panel">
+                <h3>Resultado da Busca</h3>
+                <textarea id="query-output" readonly placeholder="A query gerada aparecerá aqui..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let blockCounter = 0;
+
+        // Inicialização de Drag and Drop para o Menu Lateral
+        document.querySelectorAll('.menu-block').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('source', 'menu');
+                e.dataTransfer.setData('type', e.target.getAttribute('data-type'));
+            });
+        });
+
+        // Configuração dos Dropzones
+        function setupDropzone(zone) {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                zone.classList.add('drag-over');
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                zone.classList.remove('drag-over');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                zone.classList.remove('drag-over');
+
+                const source = e.dataTransfer.getData('source');
+                
+                if (source === 'menu') {
+                    // Criar novo bloco a partir do menu
+                    const type = e.dataTransfer.getData('type');
+                    const newBlock = createBlock(type);
+                    zone.appendChild(newBlock);
+                } else if (source === 'canvas') {
+                    // Mover bloco existente
+                    const blockId = e.dataTransfer.getData('blockId');
+                    const block = document.getElementById(blockId);
+                    
+                    // Evitar que um bloco seja solto dentro de si mesmo ou seus filhos
+                    if (block && !block.contains(zone) && block !== zone) {
+                        zone.appendChild(block);
+                    }
+                }
+                
+                updateQuery();
+            });
+        }
+
+        // Criar os Elementos HTML de cada Bloco
+        function createBlock(type) {
+            blockCounter++;
+            const blockId = `block-${blockCounter}`;
+            
+            const block = document.createElement('div');
+            block.className = `block ${type}`;
+            block.id = blockId;
+            block.draggable = true;
+
+            // Configurar dragstart para blocos já no canvas
+            block.addEventListener('dragstart', (e) => {
+                e.stopPropagation();
+                e.dataTransfer.setData('source', 'canvas');
+                e.dataTransfer.setData('blockId', blockId);
+            });
+
+            const header = document.createElement('div');
+            header.className = 'block-header';
+
+            const titleWrap = document.createElement('div');
+            titleWrap.className = 'input-group';
+
+            // Configurar conteúdo de acordo com o tipo
+            if (type === 'and') {
+                titleWrap.innerText = 'AND (Todos os termos)';
+            } else if (type === 'or') {
+                titleWrap.innerText = 'OR (Qualquer termo)';
+            } else if (type === 'not') {
+                titleWrap.innerText = 'NOT (Excluir)';
+            } else if (type === 'term') {
+                titleWrap.innerHTML = `Termo: <input type="text" placeholder="Ex: entrevistass" oninput="updateQuery()">`;
+            } else if (type === 'prox') {
+                titleWrap.innerHTML = `Termos: <input type="text" placeholder="Ex: governo tocantins" oninput="updateQuery()"> ~ Distância: <input type="number" min="0" value="2" style="width: 50px;" oninput="updateQuery()">`;
+            } else if (type === 'site') {
+                titleWrap.innerHTML = `Site: <input type="text" placeholder="Ex: doe.sp.gov.br" oninput="updateQuery()">`;
+            }
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerText = '✕';
+            deleteBtn.onclick = () => {
+                block.remove();
+                updateQuery();
+            };
+
+            header.appendChild(titleWrap);
+            header.appendChild(deleteBtn);
+            block.appendChild(header);
+
+            // Adicionar área de soltar (dropzone) para blocos lógicos
+            if (type === 'and' || type === 'or' || type === 'not') {
+                const innerZone = document.createElement('div');
+                innerZone.className = 'dropzone';
+                setupDropzone(innerZone);
+                block.appendChild(innerZone);
+            }
+
+            return block;
+        }
+
+        // Analisar a árvore DOM e gerar a String de Busca
+        function generateQueryString(element) {
+            if (!element) return "";
+
+            const isRoot = element.classList.contains('root-zone');
+            const children = Array.from(isRoot ? element.children : element.querySelector('.dropzone').children);
+            
+            let parts = [];
+
+            for (let child of children) {
+                if (child.classList.contains('term')) {
+                    const val = child.querySelector('input').value.trim();
+                    if (val) parts.push(`"${val}"`);
+                } 
+                else if (child.classList.contains('site')) {
+                    const val = child.querySelector('input').value.trim();
+                    if (val) parts.push(`site:"${val}"`);
+                } 
+                else if (child.classList.contains('prox')) {
+                    const inputs = child.querySelectorAll('input');
+                    const val = inputs[0].value.trim();
+                    const dist = inputs[1].value;
+                    if (val) parts.push(`"${val}"~${dist}`);
+                } 
+                else if (child.classList.contains('and')) {
+                    const innerQuery = generateQueryString(child);
+                    if (innerQuery) parts.push(innerQuery);
+                } 
+                else if (child.classList.contains('or')) {
+                    const innerQuery = generateQueryString(child);
+                    if (innerQuery) parts.push(innerQuery);
+                } 
+                else if (child.classList.contains('not')) {
+                    const innerQuery = generateQueryString(child);
+                    // O NOT aplica a negação a tudo o que estiver dentro dele
+                    if (innerQuery) {
+                        // Se houver mais de um item no NOT, prefixa cada um
+                        const notParts = innerQuery.replace(/^\(|\)$/g, '').split(/ AND | OR /); // Simplificação de extração
+                        parts.push(notParts.map(p => `NOT ${p}`).join(' '));
+                    }
+                }
+            }
+
+            parts = parts.filter(p => p !== "");
+            if (parts.length === 0) return "";
+
+            // Se for o root do canvas, apenas junta os componentes com espaço
+            if (isRoot) {
+                return parts.join(' ');
+            }
+
+            // Aplicar os operadores para grupos lógicos
+            if (element.classList.contains('and')) {
+                return parts.length > 1 ? `(${parts.join(' AND ')})` : parts[0];
+            }
+            if (element.classList.contains('or')) {
+                return parts.length > 1 ? `(${parts.join(' OR ')})` : parts[0];
+            }
+            if (element.classList.contains('not')) {
+                // NOT é tratado no loop acima injetando os prefixos, aqui retorna os itens unidos
+                return parts.join(' '); 
+            }
+
+            return "";
+        }
+
+        // Atualizar o Output de texto
+        window.updateQuery = function() {
+            const root = document.getElementById('main-canvas');
+            const queryString = generateQueryString(root);
+            document.getElementById('query-output').value = queryString;
+        }
+
+        // Inicializar o canvas principal
+        setupDropzone(document.getElementById('main-canvas'));
+
+    </script>
+</body>
+</html>
