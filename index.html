@@ -28,6 +28,7 @@
             border-radius: 16px;
             backdrop-filter: blur(10px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 400px;
         }
 
         h1 {
@@ -37,15 +38,16 @@
 
         .buttons {
             display: flex;
-            gap: 20px;
-            justify-content: center;
+            flex-direction: column;
+            gap: 15px;
         }
 
         button {
-            padding: 12px 24px;
+            width: 100%;
+            padding: 12px;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             transition: 0.25s;
             background: #3b82f6;
@@ -66,23 +68,30 @@
             background: #059669;
             box-shadow: 0 5px 15px rgba(16,185,129,0.4);
         }
+
+        button.tertiary {
+            background: #f59e0b;
+        }
+
+        button.tertiary:hover {
+            background: #d97706;
+            box-shadow: 0 5px 15px rgba(245,158,11,0.4);
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Escolha uma página</h1>
-
         <div class="buttons">
             <button onclick="location.href='facebook.html'">
-                Busca Facebook
+                Buscas Facebook
             </button>
 
             <button class="secondary" onclick="location.href='duplicate-check.html'">
                 Checar duplicatas
             </button>
 
-            <button class="secondary" onclick="location.href='boolean-generator.html'">
-                Gerador de booleanas
+            <button class="tertiary" onclick="location.href='boolean-generator.html'">
+                Gerador de booleanas (experimental)
             </button>
         </div>
     </div>
